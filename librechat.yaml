@@ -1,0 +1,120 @@
+version: 1.3.8
+cache: true
+
+interface:
+  customWelcome: "N3uron LibreChat local workspace."
+  modelSelect: true
+  parameters: true
+  presets: true
+  bookmarks: true
+  multiConvo: true
+  fileSearch: true
+  fileCitations: true
+  runCode: false
+  agents:
+    use: true
+    create: true
+    share: false
+    public: false
+  prompts:
+    use: true
+    create: true
+    share: false
+    public: false
+  marketplace:
+    use: false
+  mcpServers:
+    use: true
+    create: false
+    share: false
+    public: false
+
+registration:
+  socialLogins: []
+
+actions:
+  allowedDomains:
+    - "host.docker.internal"
+    - "localhost"
+
+mcpSettings:
+  allowedDomains:
+    - "host.docker.internal"
+    - "http://host.docker.internal:4103"
+    - "localhost"
+    - "http://localhost:4103"
+
+memory:
+  disabled: false
+  personalize: true
+  validKeys:
+    - "user_preferences"
+    - "conversation_context"
+    - "learned_facts"
+  tokenLimit: 1200
+  charLimit: 4000
+  messageWindowSize: 5
+  agent:
+    provider: "LocalLMStudio"
+    model: "lfm2.5-1.2b-instruct"
+    instructions: |
+      Store only stable user preferences, durable project facts, and active long-lived work context.
+      Do not store transient prompts, tool traces, or large copied outputs.
+    model_parameters:
+      temperature: 0.1
+      max_tokens: 600
+
+summarization:
+  provider: "LocalLMStudio"
+  model: "lfm2.5-1.2b-instruct"
+  maxSummaryTokens: 1200
+  reserveRatio: 0.08
+  trigger:
+    type: "token_ratio"
+    value: 0.72
+  contextPruning:
+    enabled: true
+    keepLastAssistants: 4
+    softTrimRatio: 0.25
+    hardClearRatio: 0.55
+    minPrunableToolChars: 12000
+    softTrim:
+      maxChars: 2500
+      headChars: 1000
+      tailChars: 1000
+    hardClear:
+      enabled: true
+      placeholder: "[Old tool result cleared for context control]"
+
+endpoints:
+  agents:
+    capabilities: ["tools", "file_search"]
+  custom:
+    - name: "LocalLMStudio"
+      apiKey: "${LMSTUDIO_API_KEY}"
+      baseURL: "${LMSTUDIO_BASE_URL}"
+      models:
+        default:
+          - "google/gemma-4-e2b"
+          - "google/gemma-4-e4b"
+          - "liquid/lfm2-24b-a2b"
+          - "lfm2.5-1.2b-instruct"
+        fetch: true
+      titleConvo: true
+      titleMethod: "completion"
+      titleModel: "current_model"
+      titleMessageRole: "user"
+      modelDisplayLabel: "Local LM Studio"
+      dropParams:
+        - "user"
+        - "frequency_penalty"
+        - "presence_penalty"
+
+mcpServers:
+  N3LOCAL:
+    type: "streamable-http"
+    url: "http://host.docker.internal:4103/mcp"
+    headers:
+      Authorization: "Bearer ${N3LOCAL_TOKEN}"
+    timeout: 900000
+    autoConnect: true
