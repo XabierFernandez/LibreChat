@@ -2,11 +2,9 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
-& "$PSScriptRoot\start-lmstudio-server.ps1"
-
 Push-Location $projectRoot
 try {
-  docker compose up -d --build
+  docker compose up -d
 } finally {
   Pop-Location
 }

@@ -8,8 +8,8 @@ interface:
   presets: true
   bookmarks: true
   multiConvo: true
-  fileSearch: true
-  fileCitations: true
+  fileSearch: false
+  fileCitations: false
   runCode: false
   agents:
     use: true
@@ -36,6 +36,7 @@ actions:
   allowedDomains:
     - "host.docker.internal"
     - "localhost"
+    - "n3local-proxy"
 
 mcpSettings:
   allowedDomains:
@@ -43,9 +44,11 @@ mcpSettings:
     - "http://host.docker.internal:4103"
     - "localhost"
     - "http://localhost:4103"
+    - "n3local-proxy"
+    - "http://n3local-proxy:4104"
 
 memory:
-  disabled: false
+  disabled: true
   personalize: true
   validKeys:
     - "user_preferences"
@@ -55,8 +58,8 @@ memory:
   charLimit: 4000
   messageWindowSize: 5
   agent:
-    provider: "LocalLMStudio"
-    model: "lfm2.5-1.2b-instruct"
+    provider: "OllamaLocal"
+    model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
     instructions: |
       Store only stable user preferences, durable project facts, and active long-lived work context.
       Do not store transient prompts, tool traces, or large copied outputs.
@@ -65,56 +68,93 @@ memory:
       max_tokens: 600
 
 summarization:
-  provider: "LocalLMStudio"
-  model: "lfm2.5-1.2b-instruct"
+  provider: "OllamaLocal"
+  model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
   maxSummaryTokens: 1200
   reserveRatio: 0.08
   trigger:
-    type: "token_ratio"
-    value: 0.72
+    type: "token_count"
+    value: 22000
   contextPruning:
     enabled: true
     keepLastAssistants: 4
     softTrimRatio: 0.25
     hardClearRatio: 0.55
     minPrunableToolChars: 12000
-    softTrim:
-      maxChars: 2500
-      headChars: 1000
-      tailChars: 1000
-    hardClear:
-      enabled: true
-      placeholder: "[Old tool result cleared for context control]"
 
 endpoints:
   agents:
-    capabilities: ["tools", "file_search"]
+    capabilities: ["tools"]
   custom:
-    - name: "LocalLMStudio"
-      apiKey: "${LMSTUDIO_API_KEY}"
-      baseURL: "${LMSTUDIO_BASE_URL}"
+    - name: "OllamaLocal"
+      apiKey: "ollama"
+      baseURL: "http://ollama:11434/v1/"
       models:
         default:
-          - "google/gemma-4-e2b"
-          - "google/gemma-4-e4b"
-          - "liquid/lfm2-24b-a2b"
-          - "lfm2.5-1.2b-instruct"
+          - "gemma4:e2b"
+          - "LiquidAI/lfm2.5-1.2b-instruct:latest"
         fetch: true
       titleConvo: true
       titleMethod: "completion"
-      titleModel: "current_model"
+      titleModel: "LiquidAI/lfm2.5-1.2b-instruct:latest"
       titleMessageRole: "user"
-      modelDisplayLabel: "Local LM Studio"
+      modelDisplayLabel: "Ollama Local"
       dropParams:
         - "user"
         - "frequency_penalty"
         - "presence_penalty"
 
+modelSpecs:
+  prioritize: true
+  list:
+    - name: "n3uron-ops-local"
+      label: "N3uron Ops"
+      default: true
+      description: "Tool-capable local workflow for N3uron operations."
+      mcpServers:
+        - "N3LOCAL"
+      preset:
+        endpoint: "OllamaLocal"
+        model: "gemma4:e2b"
+        modelLabel: "N3uron Ops"
+        greeting: "Ask about live N3uron state, alarms, assets, or maintenance. N3LOCAL tools are enabled for this profile."
+        promptPrefix: |
+          You are a local N3uron operations assistant.
+          Use N3LOCAL MCP tools when the request depends on live plant or node data.
+          For requests about current system or node status, call system_status immediately before any narrative.
+          Prefer the smallest sufficient tool set and summarize results for an operator.
+          Do not expose internal reasoning or hidden chain-of-thought.
+          When you report a metric or status, tie it to the tool result rather than guessing.
+        maxContextTokens: 32768
+        temperature: 0.1
+    - name: "gemma4-local-chat"
+      label: "Gemma 4 E2B"
+      description: "General local chat profile without MCP tools."
+      preset:
+        endpoint: "OllamaLocal"
+        model: "gemma4:e2b"
+        modelLabel: "Gemma 4 E2B"
+        maxContextTokens: 32768
+        temperature: 0.2
+    - name: "lfm25-local-fast"
+      label: "LFM 2.5 Fast"
+      description: "Fast local plain-chat profile without MCP tools."
+      preset:
+        endpoint: "OllamaLocal"
+        model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
+        modelLabel: "LFM 2.5 Fast"
+        maxContextTokens: 8192
+        temperature: 0.1
+
 mcpServers:
   N3LOCAL:
     type: "streamable-http"
-    url: "http://host.docker.internal:4103/mcp"
+    url: "http://n3local-proxy:4104/mcp"
+    requiresOAuth: false
+    chatMenu: true
+    serverInstructions: true
+    initTimeout: 150000
     headers:
       Authorization: "Bearer ${N3LOCAL_TOKEN}"
     timeout: 900000
-    autoConnect: true
+    autoConnect: false
