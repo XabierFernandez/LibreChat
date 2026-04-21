@@ -36,7 +36,6 @@ actions:
   allowedDomains:
     - "host.docker.internal"
     - "localhost"
-    - "n3local-proxy"
 
 mcpSettings:
   allowedDomains:
@@ -44,8 +43,6 @@ mcpSettings:
     - "http://host.docker.internal:4103"
     - "localhost"
     - "http://localhost:4103"
-    - "n3local-proxy"
-    - "http://n3local-proxy:4104"
 
 memory:
   disabled: true
@@ -149,7 +146,7 @@ modelSpecs:
 mcpServers:
   N3LOCAL:
     type: "streamable-http"
-    url: "http://n3local-proxy:4104/mcp"
+    url: "http://host.docker.internal:4103/mcp"
     requiresOAuth: false
     chatMenu: true
     serverInstructions: true

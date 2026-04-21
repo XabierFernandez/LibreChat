@@ -7,7 +7,7 @@ Slim Docker-only deployment bundle for LibreChat with:
 - `gemma4:e2b` for general local chat
 - `LiquidAI/lfm2.5-1.2b-instruct:latest` for fast plain chat
 - optional `gemma4:26b` pull for a heavier local model
-- a small Dockerized N3uron MCP proxy that forwards a curated core tool set to the host N3uron MCP server
+- direct connection to the host N3uron MCP server
 - LibreChat summarization configured to control context growth
 
 ## Requirements
@@ -39,7 +39,7 @@ Open `http://localhost:3085`.
 ## Notes
 
 - First startup takes longer because the Ollama container pulls the required models.
-- The `N3LOCAL` server exposed to LibreChat is a curated proxy, not the full host MCP surface. This keeps the tool schema small enough for local models to use reliably.
+- `N3LOCAL` points directly to the host N3uron MCP server. Tool availability is determined by that server and the user’s choices, not by a hardcoded proxy layer in this repo.
 - The built-in LibreChat MemoryAgent is disabled in this deployment because the local tool workflow is handled by the model spec plus summarization. This avoids tool-compatibility failures with smaller local models.
 - To add the larger Gemma model later:
 
