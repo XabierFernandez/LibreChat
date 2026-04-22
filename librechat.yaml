@@ -8,8 +8,9 @@ interface:
   presets: true
   bookmarks: true
   multiConvo: true
-  fileSearch: false
-  fileCitations: false
+  memories: false
+  fileSearch: true
+  fileCitations: true
   runCode: false
   agents:
     use: true
@@ -45,49 +46,35 @@ mcpSettings:
     - "http://localhost:4103"
 
 memory:
+  # Native LibreChat memory is intentionally disabled. Workflow memory is handled by Engram MCP.
   disabled: true
-  personalize: true
-  validKeys:
-    - "user_preferences"
-    - "conversation_context"
-    - "learned_facts"
-  tokenLimit: 1200
-  charLimit: 4000
-  messageWindowSize: 5
-  agent:
-    provider: "OllamaLocal"
-    model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
-    instructions: |
-      Store only stable user preferences, durable project facts, and active long-lived work context.
-      Do not store transient prompts, tool traces, or large copied outputs.
-    model_parameters:
-      temperature: 0.1
-      max_tokens: 600
 
 summarization:
+  enabled: true
   provider: "OllamaLocal"
   model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
   maxSummaryTokens: 1200
   reserveRatio: 0.08
   trigger:
     type: "token_count"
-    value: 22000
+    value: 6000
   contextPruning:
     enabled: true
     keepLastAssistants: 4
     softTrimRatio: 0.25
     hardClearRatio: 0.55
-    minPrunableToolChars: 12000
+    minPrunableToolChars: 4000
 
 endpoints:
   agents:
-    capabilities: ["tools"]
+    capabilities: ["tools", "file_search"]
   custom:
     - name: "OllamaLocal"
       apiKey: "ollama"
       baseURL: "http://ollama:11434/v1/"
       models:
         default:
+          - "n3ops"
           - "gemma4:e2b"
           - "LiquidAI/lfm2.5-1.2b-instruct:latest"
         fetch: true
@@ -110,20 +97,36 @@ modelSpecs:
       description: "Tool-capable local workflow for N3uron operations."
       mcpServers:
         - "N3LOCAL"
+        - "engram"
       preset:
         endpoint: "OllamaLocal"
-        model: "gemma4:e2b"
+        model: "n3ops"
         modelLabel: "N3uron Ops"
-        greeting: "Ask about live N3uron state, alarms, assets, or maintenance. N3LOCAL tools are enabled for this profile."
+        greeting: "Ask about live N3uron state, alarms, assets, or maintenance. N3LOCAL operational tools, RAG file search, and Engram workflow memory are enabled for this profile."
         promptPrefix: |
-          You are a local N3uron operations assistant.
-          Use N3LOCAL MCP tools when the request depends on live plant or node data.
-          For requests about current system or node status, call system_status immediately before any narrative.
-          Prefer the smallest sufficient tool set and summarize results for an operator.
-          Do not expose internal reasoning or hidden chain-of-thought.
-          When you report a metric or status, tie it to the tool result rather than guessing.
-        maxContextTokens: 32768
-        temperature: 0.1
+          N3uron Operations Mode.
+
+          TOOL ROUTING — apply before every response:
+          - "status" / "is X running" / "health" → system_status first
+          - "alarm" / "fault" / "error" → alarm_get, then alarm_history if trend needed
+          - tag name or measurement → tag_find to resolve, then tag_history if historical
+          - "module" / "config" / "installed" → module_details or module_getConfigData
+          - "why" / "diagnose" / root cause → gather all relevant tool results first, then reason
+          - documentation / procedure / spec → request RAG retrieval, not model knowledge
+
+          VALIDATION before any calculation:
+          - confirm all inputs gathered from tools
+          - confirm time range is explicit (not "recent" or "latest" without timestamp)
+          - confirm units are consistent
+          - if any input missing: report gap, do not estimate
+
+          MEMORY + KNOWLEDGE BOUNDARIES:
+          - N3LOCAL is source of truth for live and historical plant data
+          - RAG/file search is source for manuals, reports, procedures, and documentation
+          - Engram is workflow memory only: compact checkpoints, prior steps, operator decisions, blockers, conclusions, next actions
+          - never store raw historian values, alarm dumps, full tool outputs, or full chat transcripts in Engram
+        maxContextTokens: 8192
+        temperature: 0.01
     - name: "gemma4-local-chat"
       label: "Gemma 4 E2B"
       description: "General local chat profile without MCP tools."
@@ -155,3 +158,29 @@ mcpServers:
       Authorization: "Bearer ${N3LOCAL_TOKEN}"
     timeout: 900000
     autoConnect: false
+  engram:
+    type: "stdio"
+    command: "sh"
+    args:
+      - "-lc"
+      - >-
+        test -x /app/data/engram/.venv/bin/python ||
+        python -m venv /app/data/engram/.venv >/dev/null 2>&1;
+        . /app/data/engram/.venv/bin/activate;
+        python -m pip --version >/dev/null 2>&1 ||
+        python -m ensurepip --upgrade >/dev/null 2>&1;
+        python -c "import mcp, pydantic" >/dev/null 2>&1 ||
+        python -m pip install --quiet --no-cache-dir "pydantic>=2.0" "mcp>=1.2.0" >/tmp/engram-pip.log 2>&1;
+        exec python -m mcp_server.server
+    env:
+      ENGRAM_DATA_DIR: "${ENGRAM_DATA_DIR}"
+      PYTHONPATH: "/opt/engram/src:/opt/engram"
+    startup: true
+    chatMenu: false
+    initTimeout: 240000
+    timeout: 120000
+    serverInstructions: |
+      Use Engram only for compact workflow memory:
+      - checkpoint investigation steps, operator decisions, blockers, conclusions, next actions
+      - do not store raw historian data, alarm dumps, full tool outputs, or full chat transcripts
+      - retrieve prior checkpoints when resuming long-running investigations

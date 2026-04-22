@@ -8,6 +8,8 @@ services:
         condition: service_started
       ollama:
         condition: service_healthy
+      rag_api:
+        condition: service_healthy
     ports:
       - "${PORT}:${PORT}"
     extra_hosts:
@@ -17,6 +19,8 @@ services:
       - MONGO_URI=mongodb://mongodb:27017/LibreChat
       - CONFIG_PATH=/app/librechat.yaml
       - NO_INDEX=true
+      - RAG_API_URL=http://rag_api:8000
+      - ENGRAM_DATA_DIR=/app/data/engram
     volumes:
       - type: bind
         source: ./.env
@@ -24,6 +28,8 @@ services:
       - type: bind
         source: ./librechat.yaml
         target: /app/librechat.yaml
+      - ../engram:/opt/engram:ro
+      - ./data-engram:/app/data/engram
       - ./uploads:/app/uploads
       - ./images:/app/client/public/images
       - ./logs:/app/logs
@@ -36,8 +42,50 @@ services:
     volumes:
       - ./data-node:/data/db
 
+  vectordb:
+    image: pgvector/pgvector:0.8.0-pg15-trixie
+    container_name: n3uron-librechat-v085-vectordb
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=librechat_rag
+      - POSTGRES_USER=librechat
+      - POSTGRES_PASSWORD=librechat-rag-local
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U librechat -d librechat_rag
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - ./data-rag:/var/lib/postgresql/data
+
+  rag_api:
+    image: registry.librechat.ai/danny-avila/librechat-rag-api-dev:latest
+    container_name: n3uron-librechat-v085-rag-api
+    restart: unless-stopped
+    depends_on:
+      vectordb:
+        condition: service_healthy
+    environment:
+      - RAG_PORT=8000
+      - DB_HOST=vectordb
+      - DB_PORT=5432
+      - POSTGRES_DB=librechat_rag
+      - POSTGRES_USER=librechat
+      - POSTGRES_PASSWORD=librechat-rag-local
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.21.0
     container_name: n3uron-librechat-v085-ollama
     restart: unless-stopped
     environment:
@@ -49,13 +97,14 @@ services:
         /bin/ollama serve &
         sleep 5
         ollama pull gemma4:e2b
+        ollama create n3ops -f /modelfiles/Modelfile.gemma4-n3ops
         ollama pull LiquidAI/lfm2.5-1.2b-instruct:latest
         wait
     healthcheck:
       test:
         - CMD-SHELL
         - >-
-          ollama list | grep -q 'gemma4:e2b' &&
+          ollama list | grep -q 'n3ops' &&
           ollama list | grep -q 'LiquidAI/lfm2.5-1.2b-instruct'
       interval: 30s
       timeout: 10s
@@ -63,3 +112,4 @@ services:
       start_period: 20s
     volumes:
       - ./ollama:/root/.ollama
+      - ./ollama/Modelfile.gemma4-n3ops:/modelfiles/Modelfile.gemma4-n3ops:ro
