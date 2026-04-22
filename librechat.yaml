@@ -74,7 +74,7 @@ endpoints:
       baseURL: "http://ollama:11434/v1/"
       models:
         default:
-          - "n3ops"
+          - "llama3.2:3b"
           - "gemma4:e2b"
           - "LiquidAI/lfm2.5-1.2b-instruct:latest"
         fetch: true
@@ -101,7 +101,7 @@ modelSpecs:
         - "engram"
       preset:
         endpoint: "OllamaLocal"
-        model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
+        model: "llama3.2:3b"
         modelLabel: "N3uron Ops"
         greeting: "Ask about live N3uron state, alarms, assets, or maintenance. N3LOCAL operational tools, RAG file search, and Engram workflow memory are enabled for this profile."
         promptPrefix: |
@@ -147,12 +147,14 @@ mcpServers:
     autoConnect: false
   engram:
     type: "stdio"
+    requiresOAuth: false
     command: "/app/data/engram/.runtime-venv/bin/python"
     args:
       - "-m"
       - "mcp_server.server"
     env:
       ENGRAM_DATA_DIR: "${ENGRAM_DATA_DIR}"
+      ENGRAM_TOOL_PROFILE: "workflow"
       PYTHONPATH: "/opt/engram/src:/opt/engram"
     startup: false
     chatMenu: false

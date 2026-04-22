@@ -111,6 +111,14 @@ services:
     image: ghcr.io/librechat-ai/codesandbox-client/bundler:latest
     container_name: n3uron-librechat-v085-artifacts-bundler
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --quiet --tries=1 --spider http://127.0.0.1/ || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     ports:
       - "8086:80"
 
@@ -120,21 +128,21 @@ services:
     restart: unless-stopped
     environment:
       - OLLAMA_CONTEXT_LENGTH=32768
+      - OLLAMA_MAX_LOADED_MODELS=1
     entrypoint:
       - /bin/sh
       - -lc
       - |
         /bin/ollama serve &
         sleep 5
-        ollama pull gemma4:e2b
-        ollama create n3ops -f /modelfiles/Modelfile.gemma4-n3ops
+        ollama pull llama3.2:3b
         ollama pull LiquidAI/lfm2.5-1.2b-instruct:latest
         wait
     healthcheck:
       test:
         - CMD-SHELL
         - >-
-          ollama list | grep -q 'n3ops' &&
+          ollama list | grep -q 'llama3.2:3b' &&
           ollama list | grep -q 'LiquidAI/lfm2.5-1.2b-instruct'
       interval: 30s
       timeout: 10s
@@ -142,4 +150,3 @@ services:
       start_period: 20s
     volumes:
       - ./ollama:/root/.ollama
-      - ./ollama/Modelfile.gemma4-n3ops:/modelfiles/Modelfile.gemma4-n3ops:ro

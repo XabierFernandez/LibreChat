@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -20,7 +21,16 @@ from mcp_server.tools import (
 )
 
 app = Server("engram")
-_config = EngramConfig(enable_embeddings=True)
+_TOOL_PROFILE = os.getenv("ENGRAM_TOOL_PROFILE", "full").strip().lower()
+_WORKFLOW_TOOL_NAMES = {
+    "memory_store",
+    "memory_search",
+    "memory_session_save",
+    "memory_session_load",
+    "memory_session_list",
+    "memory_checkpoint",
+}
+_config = EngramConfig(enable_embeddings=_TOOL_PROFILE != "workflow")
 _memories: dict[str, Memory] = {}
 _sessions: SessionManager | None = None
 _autosavers: dict[str, AutoSave] = {}
@@ -44,17 +54,25 @@ def _sess() -> SessionManager:
 # ------------------------------------------------------------------
 
 
-@app.list_tools()
-async def list_tools() -> list[Tool]:
+def _available_tool_definitions() -> list[dict]:
     all_tools = (
         TOOL_DEFINITIONS + PRO_TOOL_DEFINITIONS + LINK_TOOL_DEFINITIONS + AUTOSAVE_TOOL_DEFINITIONS
     )
-    return [Tool(**td) for td in all_tools]
+    if _TOOL_PROFILE == "workflow":
+        return [tool for tool in all_tools if tool["name"] in _WORKFLOW_TOOL_NAMES]
+    return all_tools
+
+
+@app.list_tools()
+async def list_tools() -> list[Tool]:
+    return [Tool(**td) for td in _available_tool_definitions()]
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     try:
+        if name not in {tool["name"] for tool in _available_tool_definitions()}:
+            raise ValueError(f"Tool '{name}' is disabled for profile '{_TOOL_PROFILE}'")
         result = _dispatch(name, arguments)
         return [TextContent(type="text", text=json.dumps(result, default=str))]
     except Exception as exc:
