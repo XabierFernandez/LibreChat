@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
+import re
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -30,6 +32,40 @@ _WORKFLOW_TOOL_NAMES = {
     "memory_session_list",
     "memory_checkpoint",
 }
+_WORKFLOW_TOOL_OVERRIDES = {
+    "memory_store": (
+        "Store a compact plain-text workflow note only: checkpoint, decision, blocker, "
+        "conclusion, or next action. Never store HTML, code, raw tool output, raw historian "
+        "data, artifacts, or chat transcripts."
+    ),
+    "memory_search": "Search compact workflow notes, prior decisions, blockers, and next actions.",
+    "memory_session_save": (
+        "Save a concise workflow checkpoint with summary, key facts, and open tasks. "
+        "Use short plain-text bullets, not raw outputs or generated code."
+    ),
+    "memory_session_load": "Load the latest saved workflow checkpoint for this project.",
+    "memory_session_list": "List saved workflow checkpoints for this project.",
+    "memory_checkpoint": (
+        "Save a terse workflow checkpoint. Keep summaries short and do not include raw tool "
+        "payloads, HTML, or copied report text."
+    ),
+}
+_WORKFLOW_MAX_CHARS = int(os.getenv("ENGRAM_WORKFLOW_MAX_CHARS", "500"))
+_WORKFLOW_MAX_ITEM_CHARS = int(os.getenv("ENGRAM_WORKFLOW_MAX_ITEM_CHARS", "180"))
+_BLOCKED_WORKFLOW_PATTERNS = (
+    "<!doctype",
+    "<html",
+    "</html",
+    "<body",
+    "<script",
+    ":::artifact",
+    "```",
+    '"role":',
+    '"tool_call',
+    '"n3":',
+    '"sys":',
+    '"usage":',
+)
 _config = EngramConfig(enable_embeddings=_TOOL_PROFILE != "workflow")
 _memories: dict[str, Memory] = {}
 _sessions: SessionManager | None = None
@@ -49,6 +85,69 @@ def _sess() -> SessionManager:
     return _sessions
 
 
+def _normalize_plaintext(value: str, *, field_name: str, max_chars: int) -> str:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    if not text:
+        raise ValueError(f"{field_name} must be non-empty plain text")
+    if len(text) > max_chars:
+        raise ValueError(
+            f"{field_name} is too long for workflow memory; keep it under {max_chars} characters"
+        )
+
+    lowered = text.lower()
+    if lowered.startswith("{") or lowered.startswith("["):
+        raise ValueError(
+            f"{field_name} must be a concise workflow summary, not raw JSON or a structured dump"
+        )
+    if any(pattern in lowered for pattern in _BLOCKED_WORKFLOW_PATTERNS):
+        raise ValueError(
+            f"{field_name} must be plain-text workflow memory only; do not store HTML, code, or raw outputs"
+        )
+
+    return text
+
+
+def _normalize_items(items: list[str] | None, *, field_name: str, max_items: int = 8) -> list[str] | None:
+    if items is None:
+        return None
+
+    normalized = [
+        _normalize_plaintext(str(item), field_name=field_name, max_chars=_WORKFLOW_MAX_ITEM_CHARS)
+        for item in items
+        if str(item).strip()
+    ]
+    return normalized[:max_items]
+
+
+def _enforce_workflow_payload(name: str, args: dict) -> dict:
+    if _TOOL_PROFILE != "workflow":
+        return args
+
+    clean = dict(args)
+
+    if name == "memory_store":
+        clean["content"] = _normalize_plaintext(
+            str(args["content"]),
+            field_name="memory_store.content",
+            max_chars=_WORKFLOW_MAX_CHARS,
+        )
+        clean["tags"] = _normalize_items(args.get("tags"), field_name="memory_store.tags") or []
+        return clean
+
+    if name in {"memory_session_save", "memory_checkpoint"}:
+        if "summary" in clean and clean.get("summary") is not None:
+            clean["summary"] = _normalize_plaintext(
+                str(clean["summary"]),
+                field_name=f"{name}.summary",
+                max_chars=_WORKFLOW_MAX_CHARS,
+            )
+        clean["key_facts"] = _normalize_items(clean.get("key_facts"), field_name=f"{name}.key_facts")
+        clean["open_tasks"] = _normalize_items(clean.get("open_tasks"), field_name=f"{name}.open_tasks")
+        return clean
+
+    return clean
+
+
 # ------------------------------------------------------------------
 # Tools
 # ------------------------------------------------------------------
@@ -59,7 +158,16 @@ def _available_tool_definitions() -> list[dict]:
         TOOL_DEFINITIONS + PRO_TOOL_DEFINITIONS + LINK_TOOL_DEFINITIONS + AUTOSAVE_TOOL_DEFINITIONS
     )
     if _TOOL_PROFILE == "workflow":
-        return [tool for tool in all_tools if tool["name"] in _WORKFLOW_TOOL_NAMES]
+        workflow_tools = []
+        for tool in all_tools:
+            if tool["name"] not in _WORKFLOW_TOOL_NAMES:
+                continue
+            tool_copy = copy.deepcopy(tool)
+            override = _WORKFLOW_TOOL_OVERRIDES.get(tool_copy["name"])
+            if override:
+                tool_copy["description"] = override
+            workflow_tools.append(tool_copy)
+        return workflow_tools
     return all_tools
 
 
@@ -80,6 +188,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 def _dispatch(name: str, args: dict) -> dict:
+    args = _enforce_workflow_payload(name, args)
     ns = args.get("namespace", "default")
     mem = _mem(ns)
 

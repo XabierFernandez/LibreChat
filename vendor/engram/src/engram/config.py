@@ -8,11 +8,23 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
+def default_db_path() -> Path:
+    explicit = os.environ.get("ENGRAM_DB_PATH")
+    if explicit:
+        return Path(explicit)
+
+    data_dir = os.environ.get("ENGRAM_DATA_DIR")
+    if data_dir:
+        return Path(data_dir) / "memory.db"
+
+    return Path.home() / ".engram" / "memory.db"
+
+
 class EngramConfig(BaseModel):
     """Global configuration for an Engram instance."""
 
     db_path: Path = Field(
-        default_factory=lambda: Path.home() / ".engram" / "memory.db",
+        default_factory=default_db_path,
     )
     storage_backend: str = "sqlite"
     enable_embeddings: bool = True

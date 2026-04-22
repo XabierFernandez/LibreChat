@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from engram.config import default_db_path
 
 
 class SessionManager:
@@ -19,12 +20,7 @@ class SessionManager:
 
     def __init__(self, db_path: str | Path | None = None):
         if db_path is None:
-            db_path = Path(
-                os.environ.get(
-                    "ENGRAM_DB_PATH",
-                    Path.home() / ".engram" / "memory.db",
-                )
-            )
+            db_path = default_db_path()
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
