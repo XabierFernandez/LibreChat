@@ -10,6 +10,10 @@ services:
         condition: service_healthy
       rag_api:
         condition: service_healthy
+      engram_init:
+        condition: service_completed_successfully
+      artifacts_bundler:
+        condition: service_started
     ports:
       - "${PORT}:${PORT}"
     extra_hosts:
@@ -28,7 +32,7 @@ services:
       - type: bind
         source: ./librechat.yaml
         target: /app/librechat.yaml
-      - ../engram:/opt/engram:ro
+      - ./vendor/engram:/opt/engram:ro
       - ./data-engram:/app/data/engram
       - ./uploads:/app/uploads
       - ./images:/app/client/public/images
@@ -83,6 +87,32 @@ services:
       timeout: 10s
       retries: 20
       start_period: 20s
+
+  engram_init:
+    image: registry.librechat.ai/danny-avila/librechat:v0.8.5-rc1
+    container_name: n3uron-librechat-v085-engram-init
+    restart: "no"
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        if ! /engram-data/.runtime-venv/bin/python -V >/dev/null 2>&1; then
+          rm -rf /engram-data/.runtime-venv
+          python -m venv /engram-data/.runtime-venv
+        fi
+        if ! /engram-data/.runtime-venv/bin/python -c "import mcp, pydantic" >/dev/null 2>&1; then
+          /engram-data/.runtime-venv/bin/python -m pip install --no-cache-dir "pydantic>=2.0" "mcp>=1.2.0"
+        fi
+    volumes:
+      - ./data-engram:/engram-data
+
+  artifacts_bundler:
+    image: ghcr.io/librechat-ai/codesandbox-client/bundler:latest
+    container_name: n3uron-librechat-v085-artifacts-bundler
+    restart: unless-stopped
+    ports:
+      - "8086:80"
 
   ollama:
     image: ollama/ollama:0.21.0

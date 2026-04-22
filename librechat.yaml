@@ -57,17 +57,17 @@ summarization:
   reserveRatio: 0.08
   trigger:
     type: "token_count"
-    value: 6000
+    value: 22000
   contextPruning:
     enabled: true
     keepLastAssistants: 4
     softTrimRatio: 0.25
     hardClearRatio: 0.55
-    minPrunableToolChars: 4000
+    minPrunableToolChars: 12000
 
 endpoints:
   agents:
-    capabilities: ["tools", "file_search"]
+    capabilities: ["tools", "file_search", "artifacts"]
   custom:
     - name: "OllamaLocal"
       apiKey: "ollama"
@@ -95,37 +95,24 @@ modelSpecs:
       label: "N3uron Ops"
       default: true
       description: "Tool-capable local workflow for N3uron operations."
+      artifacts: true
       mcpServers:
         - "N3LOCAL"
         - "engram"
       preset:
         endpoint: "OllamaLocal"
-        model: "n3ops"
+        model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
         modelLabel: "N3uron Ops"
         greeting: "Ask about live N3uron state, alarms, assets, or maintenance. N3LOCAL operational tools, RAG file search, and Engram workflow memory are enabled for this profile."
         promptPrefix: |
-          N3uron Operations Mode.
-
-          TOOL ROUTING — apply before every response:
-          - "status" / "is X running" / "health" → system_status first
-          - "alarm" / "fault" / "error" → alarm_get, then alarm_history if trend needed
-          - tag name or measurement → tag_find to resolve, then tag_history if historical
-          - "module" / "config" / "installed" → module_details or module_getConfigData
-          - "why" / "diagnose" / root cause → gather all relevant tool results first, then reason
-          - documentation / procedure / spec → request RAG retrieval, not model knowledge
-
-          VALIDATION before any calculation:
-          - confirm all inputs gathered from tools
-          - confirm time range is explicit (not "recent" or "latest" without timestamp)
-          - confirm units are consistent
-          - if any input missing: report gap, do not estimate
-
-          MEMORY + KNOWLEDGE BOUNDARIES:
-          - N3LOCAL is source of truth for live and historical plant data
-          - RAG/file search is source for manuals, reports, procedures, and documentation
-          - Engram is workflow memory only: compact checkpoints, prior steps, operator decisions, blockers, conclusions, next actions
-          - never store raw historian values, alarm dumps, full tool outputs, or full chat transcripts in Engram
-        maxContextTokens: 8192
+          N3uron operations assistant.
+          Use N3LOCAL for live and historical plant data.
+          Use RAG/file search for manuals, reports, procedures, and documentation.
+          Use Engram only for compact workflow memory: checkpoints, decisions, blockers, conclusions, next actions.
+          Never store raw historian values, alarm dumps, full tool outputs, or full chat transcripts in Engram.
+          If the request depends on current status, alarms, tags, modules, or history, call the relevant tool first.
+          If inputs, timestamps, or units are missing, state the gap and do not estimate.
+        maxContextTokens: 32768
         temperature: 0.01
     - name: "gemma4-local-chat"
       label: "Gemma 4 E2B"
@@ -160,22 +147,14 @@ mcpServers:
     autoConnect: false
   engram:
     type: "stdio"
-    command: "sh"
+    command: "/app/data/engram/.runtime-venv/bin/python"
     args:
-      - "-lc"
-      - >-
-        test -x /app/data/engram/.venv/bin/python ||
-        python -m venv /app/data/engram/.venv >/dev/null 2>&1;
-        . /app/data/engram/.venv/bin/activate;
-        python -m pip --version >/dev/null 2>&1 ||
-        python -m ensurepip --upgrade >/dev/null 2>&1;
-        python -c "import mcp, pydantic" >/dev/null 2>&1 ||
-        python -m pip install --quiet --no-cache-dir "pydantic>=2.0" "mcp>=1.2.0" >/tmp/engram-pip.log 2>&1;
-        exec python -m mcp_server.server
+      - "-m"
+      - "mcp_server.server"
     env:
       ENGRAM_DATA_DIR: "${ENGRAM_DATA_DIR}"
       PYTHONPATH: "/opt/engram/src:/opt/engram"
-    startup: true
+    startup: false
     chatMenu: false
     initTimeout: 240000
     timeout: 120000
