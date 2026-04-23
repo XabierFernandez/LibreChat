@@ -3,6 +3,7 @@ services:
     image: registry.librechat.ai/danny-avila/librechat:v0.8.5-rc1
     container_name: n3uron-librechat-v085
     restart: unless-stopped
+    user: "0:0"
     depends_on:
       mongodb:
         condition: service_started
@@ -23,6 +24,7 @@ services:
       - MONGO_URI=mongodb://mongodb:27017/LibreChat
       - CONFIG_PATH=/app/librechat.yaml
       - NO_INDEX=true
+      - TITLE_CONVO=false
       - RAG_API_URL=http://rag_api:8000
       - ENGRAM_DATA_DIR=/app/data/engram
     volumes:
@@ -37,7 +39,6 @@ services:
       - ./data-engram:/app/data/engram
       - ./uploads:/app/uploads
       - ./images:/app/client/public/images
-      - ./logs:/app/logs
 
   mongodb:
     image: mongo:8.0.20
@@ -134,7 +135,9 @@ services:
     container_name: n3uron-librechat-v085-ollama
     restart: unless-stopped
     environment:
-      - OLLAMA_CONTEXT_LENGTH=32768
+      - OLLAMA_CONTEXT_LENGTH=16384
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=30m
       - OLLAMA_MAX_LOADED_MODELS=1
     entrypoint:
       - /bin/sh

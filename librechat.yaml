@@ -3,7 +3,7 @@ cache: true
 
 interface:
   customWelcome: "N3uron LibreChat local workspace."
-  modelSelect: true
+  modelSelect: false
   parameters: true
   presets: false
   bookmarks: true
@@ -13,8 +13,8 @@ interface:
   fileCitations: true
   runCode: false
   agents:
-    use: true
-    create: true
+    use: false
+    create: false
     share: false
     public: false
   prompts:
@@ -56,7 +56,7 @@ summarization:
   reserveRatio: 0.08
   trigger:
     type: "token_count"
-    value: 22000
+    value: 11000
   contextPruning:
     enabled: true
     keepLastAssistants: 4
@@ -66,6 +66,8 @@ summarization:
 
 endpoints:
   agents:
+    disableBuilder: true
+    allowedProviders: ["OllamaLocal"]
     capabilities: ["tools", "file_search", "artifacts"]
   custom:
     - name: "OllamaLocal"
@@ -75,7 +77,7 @@ endpoints:
         default:
           - "gemma4:26b"
         fetch: false
-      titleConvo: true
+      titleConvo: false
       titleMethod: "completion"
       titleModel: "current_model"
       titleMessageRole: "user"
@@ -102,58 +104,29 @@ modelSpecs:
         endpoint: "OllamaLocal"
         model: "gemma4:26b"
         modelLabel: "N3 O&M"
+        disableStreaming: true
         greeting: "Ask about live N3uron state, alarms, assets, manuals, reports, or maintenance. N3OPS, RAG file search, Engram workflow memory, and artifacts are enabled for this profile."
         promptPrefix: |
-          # N3uron IIoT/SCADA Analyst
-
-          You analyze industrial assets and systems using live and historical
-          process data from N3uron, alongside user-provided documentation.
-          Your outputs are audit-ready: every finding is traceable to a source,
-          every number is provable.
-
-          ---
-
-          ## Data Integrity — Non-Negotiable
-
-          No invented numbers. Never fabricate, estimate, interpolate,
-          or use benchmarks unless the user explicitly provides a value and
-          labels it as a reference.
-
-          Every number requires a source:
-          - Tool output -> tool name + timestamp + tag path(s) / time range
-          - Uploaded file -> filename + section/table + page
-          - User-provided -> "User-provided value"
-
-          Show your math. For every derived value:
-          inputs (with sources) -> formula -> result (with units)
-          If any input is missing, do not calculate -> state what is missing.
-
-          Units discipline. Confirm units are consistent throughout.
-          Flag any ambiguity before calculating.
-
-          No speculative language. Never use: typical / approximately /
-          usually / industry standard / based on similar equipment.
-
-          When data is missing, say exactly:
-          - "I need to run [tool] to obtain [metric] before I can continue."
-          - "I cannot find [value] after searching. Please provide it or confirm where it appears."
-
-          ---
-
-          Use N3OPS for live and historical plant data from the N3uron MCP source of truth.
+          N3uron operations assistant.
+          Use N3OPS as the source of truth for live and historical plant data.
           Use RAG/file search for manuals, reports, procedures, and documentation.
           Use Engram only for compact workflow memory: checkpoints, decisions, blockers, conclusions, and next actions.
-          For LibreChat artifacts, do not call an artifact_create tool. Emit artifact content as a markdown artifact block:
+          Never invent values, estimate missing data, or hide unit ambiguity.
+          Every reported number must cite its source:
+          - tool output -> tool name + timestamp + tag path(s) or time range
+          - uploaded file -> filename + section/table + page
+          - user input -> "User-provided"
+          If data is missing, say exactly what tool or value is needed before continuing.
+          For derived values, show inputs, formula, result, and units.
+          Do not store raw historian values, alarm dumps, full tool outputs, transcripts, generated HTML/code, or copied report text in Engram.
+          For LibreChat artifacts, do not call `artifact_create`.
+          Emit markdown artifact blocks only:
           :::artifact{identifier="your-id" type="text/html" title="Your Title"}
           ```html
           ...
           ```
           :::
-          Never store raw historian values, alarm dumps, full tool outputs, full chat transcripts, generated HTML/code, artifacts, or copied report text in Engram.
-          If the request depends on current status, alarms, tags, modules, or history, call the relevant tool first.
-          If N3OPS does not expose the exact tool you need, say so explicitly instead of guessing.
-          If inputs, timestamps, or units are missing, state the gap and do not estimate.
-        maxContextTokens: 32768
+        maxContextTokens: 16384
         temperature: 0.01
 
 mcpServers:
@@ -166,6 +139,7 @@ mcpServers:
     env:
       N3LOCAL_URL: "http://host.docker.internal:4103/mcp"
       N3LOCAL_TOKEN: "${N3LOCAL_TOKEN}"
+      N3OPS_TOOL_PROFILE: "core"
     startup: false
     chatMenu: false
     initTimeout: 240000

@@ -16,7 +16,7 @@ from mcp.types import CallToolResult, TextContent, Tool
 
 app = Server("n3ops")
 
-_ALLOWED_TOOL_NAMES = [
+_FULL_TOOL_NAMES = [
     "alarm_get",
     "alarm_history",
     "system_status",
@@ -32,6 +32,16 @@ _ALLOWED_TOOL_NAMES = [
     "ops_performance_score_assets",
     "ops_performance_trend_assets",
 ]
+_CORE_TOOL_NAMES = [
+    "alarm_get",
+    "alarm_history",
+    "system_status",
+    "tag_find",
+    "tag_describe",
+    "tag_history",
+]
+_TOOL_PROFILE = os.getenv("N3OPS_TOOL_PROFILE", "full").strip().lower()
+_ALLOWED_TOOL_NAMES = _CORE_TOOL_NAMES if _TOOL_PROFILE == "core" else _FULL_TOOL_NAMES
 _ALLOWED_TOOL_SET = set(_ALLOWED_TOOL_NAMES)
 _TOOL_CACHE: dict[str, Tool] = {}
 _N3LOCAL_URL = os.getenv("N3LOCAL_URL", "http://host.docker.internal:4103/mcp")
