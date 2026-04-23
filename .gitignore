@@ -1,5 +1,8 @@
 .env
 data-node/
+data-engram/
+data-rag/
+data-rag-cache/
 images/
 logs/
 ollama/

@@ -3,19 +3,20 @@
 Slim Docker-only deployment bundle for LibreChat with:
 
 - local Ollama inference running inside Docker
-- `gemma4:e2b` for tool-backed N3uron operations
-- `gemma4:e2b` for general local chat
-- `LiquidAI/lfm2.5-1.2b-instruct:latest` for fast plain chat
-- optional `gemma4:26b` pull for a heavier local model
+- one local model only: `gemma4:26b`
 - direct connection to the host N3uron MCP server
-- LibreChat summarization configured to control context growth
+- LibreChat summarization enabled
+- LibreChat native memory disabled
+- RAG enabled with the local LibreChat RAG API
+- Engram wired as workflow memory over MCP
+- artifacts enabled for the single ops preset
 
 ## Requirements
 
 - Docker Desktop
 - A reachable N3uron MCP server on the host machine
 
-No extra host AI runtime is required.
+No extra host AI runtime is required. This bundle is intentionally Docker-only.
 
 ## Start
 
@@ -30,21 +31,21 @@ cd C:\Gitrepos\MyGPT\n3uron-librechat-v0.8.5-rc1
 
 Open `http://localhost:3085`.
 
-## Default Profiles
+## Default Preset
 
-- `N3uron Ops`: default profile, auto-enables `N3LOCAL` MCP tools and uses `gemma4:e2b`
-- `Gemma 4 E2B`: plain local chat without MCP tools
-- `LFM 2.5 Fast`: faster plain local chat without MCP tools
+- `N3 O&M`: the only preset, using `gemma4:26b` with `N3OPS`, RAG file search, Engram workflow memory, summarization, and artifacts
 
 ## Notes
 
-- First startup takes longer because the Ollama container pulls the required models.
-- `N3LOCAL` points directly to the host N3uron MCP server. Tool availability is determined by that server and the user’s choices, not by a hardcoded proxy layer in this repo.
-- The built-in LibreChat MemoryAgent is disabled in this deployment because the local tool workflow is handled by the model spec plus summarization. This avoids tool-compatibility failures with smaller local models.
-- To add the larger Gemma model later:
+- First startup takes longer because the Ollama container pulls `gemma4:26b`.
+- `N3OPS` is the MCP bridge used by the preset. It queries the host N3uron MCP server and normalizes some operational payloads for the model.
+- LibreChat native memory is disabled. Workflow state is stored in Engram only, and only as compact checkpoints, decisions, blockers, conclusions, and next actions.
+- RAG uses the local LibreChat RAG API plus the bundled pgvector database.
+- Artifacts are intended to be emitted as LibreChat markdown artifact blocks.
+- If you want to change the model later, do it manually in `docker-compose.yml` or through Ollama after the stack is up:
 
 ```powershell
-docker exec n3uron-librechat-v085-ollama ollama pull gemma4:26b
+docker exec n3uron-librechat-v085-ollama ollama pull <other-model>
 ```
 
 - LibreChat is pinned to `registry.librechat.ai/danny-avila/librechat:v0.8.5-rc1`.
