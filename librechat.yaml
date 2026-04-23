@@ -46,13 +46,12 @@ mcpSettings:
     - "http://localhost:4103"
 
 memory:
-  # Native LibreChat memory is intentionally disabled. Workflow memory is handled by Engram MCP.
   disabled: true
 
 summarization:
   enabled: true
-  provider: "LLMsterLocal"
-  model: "gemma-4-e2b-it"
+  provider: "OllamaLocal"
+  model: "gemma4:26b"
   maxSummaryTokens: 1200
   reserveRatio: 0.08
   trigger:
@@ -67,23 +66,20 @@ summarization:
 
 endpoints:
   agents:
-    capabilities: ["tools", "file_search", "artifacts", "deferred_tools"]
+    capabilities: ["tools", "file_search", "artifacts"]
   custom:
-    - name: "LLMsterLocal"
-      apiKey: "llmster"
-      baseURL: "http://llmster:1234/v1/"
+    - name: "OllamaLocal"
+      apiKey: "ollama"
+      baseURL: "http://ollama:11434/v1/"
       models:
         default:
-          - "gemma-4-e2b-it"
+          - "gemma4:26b"
         fetch: false
-      addParams:
-        top_k: 50
-        repeat_penalty: 1.05
       titleConvo: true
       titleMethod: "completion"
       titleModel: "current_model"
       titleMessageRole: "user"
-      modelDisplayLabel: "LLMster Gemma"
+      modelDisplayLabel: "Ollama Gemma 4 26B"
       maxToolResultChars: 5000
       dropParams:
         - "user"
@@ -96,17 +92,17 @@ modelSpecs:
     - name: "n3-o-m"
       label: "N3 O&M"
       default: true
-      description: "Tool-capable N3uron operations workflow on llmster + Gemma 4 E2B."
+      description: "Single-preset N3uron operations workflow on Ollama Gemma 4 26B A4B."
       artifacts: true
       fileSearch: true
       mcpServers:
         - "N3OPS"
         - "engram"
       preset:
-        endpoint: "LLMsterLocal"
-        model: "gemma-4-e2b-it"
+        endpoint: "OllamaLocal"
+        model: "gemma4:26b"
         modelLabel: "N3 O&M"
-        greeting: "Ask about live N3uron state, alarms, assets, manuals, reports, or maintenance. N3OPS, RAG file search, Engram workflow memory, and artifacts are enabled for this dockerized profile."
+        greeting: "Ask about live N3uron state, alarms, assets, manuals, reports, or maintenance. N3OPS, RAG file search, Engram workflow memory, and artifacts are enabled for this profile."
         promptPrefix: |
           # N3uron IIoT/SCADA Analyst
 
@@ -161,17 +157,6 @@ modelSpecs:
         temperature: 0.01
 
 mcpServers:
-  N3LOCAL:
-    type: "streamable-http"
-    url: "http://host.docker.internal:4103/mcp"
-    requiresOAuth: false
-    chatMenu: true
-    serverInstructions: true
-    initTimeout: 150000
-    headers:
-      Authorization: "Bearer ${N3LOCAL_TOKEN}"
-    timeout: 900000
-    autoConnect: false
   N3OPS:
     type: "stdio"
     requiresOAuth: false
