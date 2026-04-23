@@ -51,8 +51,8 @@ memory:
 
 summarization:
   enabled: true
-  provider: "OllamaFast"
-  model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
+  provider: "LLMsterLocal"
+  model: "gemma-4-e2b-it"
   maxSummaryTokens: 1200
   reserveRatio: 0.08
   trigger:
@@ -69,36 +69,22 @@ endpoints:
   agents:
     capabilities: ["tools", "file_search", "artifacts", "deferred_tools"]
   custom:
-    - name: "OllamaOps"
-      apiKey: "ollama"
-      baseURL: "http://ollama:11434/v1/"
+    - name: "LLMsterLocal"
+      apiKey: "llmster"
+      baseURL: "http://llmster:1234/v1/"
       models:
         default:
-          - "n3ops:latest"
-          - "gemma4:e2b"
+          - "gemma-4-e2b-it"
         fetch: false
-      titleConvo: true
-      titleMethod: "completion"
-      titleModel: "LiquidAI/lfm2.5-1.2b-instruct:latest"
-      titleMessageRole: "user"
-      modelDisplayLabel: "Ollama Ops"
-      maxToolResultChars: 5000
-      dropParams:
-        - "user"
-        - "frequency_penalty"
-        - "presence_penalty"
-    - name: "OllamaFast"
-      apiKey: "ollama"
-      baseURL: "http://ollama:11434/v1/"
-      models:
-        default:
-          - "LiquidAI/lfm2.5-1.2b-instruct:latest"
-        fetch: false
+      addParams:
+        top_k: 50
+        repeat_penalty: 1.05
       titleConvo: true
       titleMethod: "completion"
       titleModel: "current_model"
       titleMessageRole: "user"
-      modelDisplayLabel: "Ollama Fast"
+      modelDisplayLabel: "LLMster Gemma"
+      maxToolResultChars: 5000
       dropParams:
         - "user"
         - "frequency_penalty"
@@ -107,48 +93,66 @@ endpoints:
 modelSpecs:
   prioritize: true
   list:
-    - name: "n3uron-ops-docker"
-      label: "N3uron Ops Docker"
+    - name: "n3-o-m"
+      label: "N3 O&M"
       default: true
-      description: "Tool-capable local workflow for N3uron operations."
+      description: "Tool-capable N3uron operations workflow on llmster + Gemma 4 E2B."
       artifacts: true
+      fileSearch: true
       mcpServers:
         - "N3OPS"
         - "engram"
       preset:
-        endpoint: "OllamaOps"
-        model: "n3ops:latest"
-        modelLabel: "N3uron Ops Docker"
-        greeting: "Ask about live N3uron state, alarms, assets, or maintenance. Filtered N3uron operations tools, RAG file search, and Engram workflow memory are enabled for this dockerized profile."
+        endpoint: "LLMsterLocal"
+        model: "gemma-4-e2b-it"
+        modelLabel: "N3 O&M"
+        greeting: "Ask about live N3uron state, alarms, assets, manuals, reports, or maintenance. N3OPS, RAG file search, Engram workflow memory, and artifacts are enabled for this dockerized profile."
         promptPrefix: |
-          N3uron operations assistant.
-          Use N3OPS for live and historical plant data from the N3uron MCP source.
+          # N3uron IIoT/SCADA Analyst
+
+          You analyze industrial assets and systems using live and historical
+          process data from N3uron, alongside user-provided documentation.
+          Your outputs are audit-ready: every finding is traceable to a source,
+          every number is provable.
+
+          ---
+
+          ## Data Integrity — Non-Negotiable
+
+          No invented numbers. Never fabricate, estimate, interpolate,
+          or use benchmarks unless the user explicitly provides a value and
+          labels it as a reference.
+
+          Every number requires a source:
+          - Tool output -> tool name + timestamp + tag path(s) / time range
+          - Uploaded file -> filename + section/table + page
+          - User-provided -> "User-provided value"
+
+          Show your math. For every derived value:
+          inputs (with sources) -> formula -> result (with units)
+          If any input is missing, do not calculate -> state what is missing.
+
+          Units discipline. Confirm units are consistent throughout.
+          Flag any ambiguity before calculating.
+
+          No speculative language. Never use: typical / approximately /
+          usually / industry standard / based on similar equipment.
+
+          When data is missing, say exactly:
+          - "I need to run [tool] to obtain [metric] before I can continue."
+          - "I cannot find [value] after searching. Please provide it or confirm where it appears."
+
+          ---
+
+          Use N3OPS for live and historical plant data from the N3uron MCP source of truth.
           Use RAG/file search for manuals, reports, procedures, and documentation.
-          Use Engram only for compact workflow memory: checkpoints, decisions, blockers, conclusions, next actions.
+          Use Engram only for compact workflow memory: checkpoints, decisions, blockers, conclusions, and next actions.
           Never store raw historian values, alarm dumps, full tool outputs, full chat transcripts, generated HTML/code, artifacts, or copied report text in Engram.
           If the request depends on current status, alarms, tags, modules, or history, call the relevant tool first.
           If N3OPS does not expose the exact tool you need, say so explicitly instead of guessing.
           If inputs, timestamps, or units are missing, state the gap and do not estimate.
-        maxContextTokens: 24576
+        maxContextTokens: 32768
         temperature: 0.01
-    - name: "gemma4-local-chat"
-      label: "Gemma 4 E2B"
-      description: "General local chat profile without MCP tools."
-      preset:
-        endpoint: "OllamaOps"
-        model: "gemma4:e2b"
-        modelLabel: "Gemma 4 E2B"
-        maxContextTokens: 24576
-        temperature: 0.2
-    - name: "lfm25-local-fast"
-      label: "LFM 2.5 Fast"
-      description: "Fast local plain-chat profile without MCP tools."
-      preset:
-        endpoint: "OllamaFast"
-        model: "LiquidAI/lfm2.5-1.2b-instruct:latest"
-        modelLabel: "LFM 2.5 Fast"
-        maxContextTokens: 8192
-        temperature: 0.1
 
 mcpServers:
   N3LOCAL:
@@ -164,6 +168,7 @@ mcpServers:
     autoConnect: false
   N3OPS:
     type: "stdio"
+    requiresOAuth: false
     command: "/app/data/engram/.runtime-venv/bin/python"
     args:
       - "/opt/n3ops_mcp/server.py"

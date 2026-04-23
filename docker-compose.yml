@@ -6,7 +6,7 @@ services:
     depends_on:
       mongodb:
         condition: service_started
-      ollama:
+      llmster:
         condition: service_healthy
       rag_api:
         condition: service_healthy
@@ -33,6 +33,7 @@ services:
         source: ./librechat.yaml
         target: /app/librechat.yaml
       - ./vendor/engram:/opt/engram:ro
+      - ./vendor/n3ops_mcp:/opt/n3ops_mcp:ro
       - ./data-engram:/app/data/engram
       - ./uploads:/app/uploads
       - ./images:/app/client/public/images
@@ -79,6 +80,10 @@ services:
       - POSTGRES_DB=librechat_rag
       - POSTGRES_USER=librechat
       - POSTGRES_PASSWORD=librechat-rag-local
+      - EMBEDDINGS_PROVIDER=huggingface
+      - EMBEDDINGS_MODEL=sentence-transformers/all-MiniLM-L6-v2
+    volumes:
+      - ./data-rag-cache:/root/.cache
     healthcheck:
       test:
         - CMD-SHELL
@@ -104,6 +109,8 @@ services:
         if ! /engram-data/.runtime-venv/bin/python -c "import mcp, pydantic" >/dev/null 2>&1; then
           /engram-data/.runtime-venv/bin/python -m pip install --no-cache-dir "pydantic>=2.0" "mcp>=1.2.0"
         fi
+        touch /engram-data/memory.db
+        chmod 666 /engram-data/memory.db || true
     volumes:
       - ./data-engram:/engram-data
 
@@ -122,31 +129,34 @@ services:
     ports:
       - "8086:80"
 
-  ollama:
-    image: ollama/ollama:0.21.0
-    container_name: n3uron-librechat-v085-ollama
+  llmster:
+    build:
+      context: .
+      dockerfile: ./docker/llmster/Dockerfile
+    image: n3uron-librechat-v085-llmster:local
+    container_name: n3uron-librechat-v085-llmster
     restart: unless-stopped
     environment:
-      - OLLAMA_CONTEXT_LENGTH=32768
-      - OLLAMA_MAX_LOADED_MODELS=1
-    entrypoint:
-      - /bin/sh
-      - -lc
-      - |
-        /bin/ollama serve &
-        sleep 5
-        ollama pull llama3.2:3b
-        ollama pull LiquidAI/lfm2.5-1.2b-instruct:latest
-        wait
+      - LLMSTER_MODEL_ID=gemma-4-e2b-it
+      - LLMSTER_CONTEXT_LENGTH=32768
+      - LLMSTER_GPU=max
+      - LLMSTER_PARALLEL=4
+      - LLMSTER_EVAL_BATCH_SIZE=512
+      - LLMSTER_FLASH_ATTENTION=true
+      - LLMSTER_OFFLOAD_KV_CACHE_TO_GPU=true
+      - LLMSTER_LOAD_ON_START=true
     healthcheck:
       test:
         - CMD-SHELL
-        - >-
-          ollama list | grep -q 'llama3.2:3b' &&
-          ollama list | grep -q 'LiquidAI/lfm2.5-1.2b-instruct'
+        - curl -fsS http://127.0.0.1:1234/lmstudio-greeting >/dev/null || exit 1
       interval: 30s
-      timeout: 10s
-      retries: 60
-      start_period: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 180s
+    ports:
+      - "1234:1234"
     volumes:
-      - ./ollama:/root/.ollama
+      - type: bind
+        source: ${USERPROFILE}/.lmstudio/models/lmstudio-community/gemma-4-E2B-it-GGUF
+        target: /root/.lmstudio/models/lmstudio-community/gemma-4-E2B-it-GGUF
+        read_only: true
