@@ -35,7 +35,7 @@ services:
         source: ./librechat.yaml
         target: /app/librechat.yaml
       - ./vendor/engram:/opt/engram:ro
-      - ./vendor/n3ops_mcp:/opt/n3ops_mcp:ro
+      - ./vendor/n3local_mcp:/opt/n3local_mcp:ro
       - ./data-engram:/app/data/engram
       - ./uploads:/app/uploads
       - ./images:/app/client/public/images

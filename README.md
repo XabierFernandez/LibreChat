@@ -33,12 +33,12 @@ Open `http://localhost:3085`.
 
 ## Default Preset
 
-- `N3 O&M`: the only preset, using `gemma4:26b` with `N3OPS`, RAG file search, Engram workflow memory, summarization, and artifacts
+- `N3 O&M`: the only preset, using `gemma4:26b` with `N3LOCAL`, RAG file search, Engram workflow memory, summarization, and artifacts
 
 ## Notes
 
 - First startup takes longer because the Ollama container pulls `gemma4:26b`.
-- `N3OPS` is the MCP bridge used by the preset. It queries the host N3uron MCP server and normalizes some operational payloads for the model.
+- `N3LOCAL` is the MCP bridge used by the preset. It queries the host N3uron MCP server and normalizes some operational payloads for the model.
 - LibreChat native memory is disabled. Workflow state is stored in Engram only, and only as compact checkpoints, decisions, blockers, conclusions, and next actions.
 - RAG uses the local LibreChat RAG API plus the bundled pgvector database.
 - Artifacts are intended to be emitted as LibreChat markdown artifact blocks.

@@ -14,7 +14,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import CallToolResult, TextContent, Tool
 
-app = Server("n3ops")
+app = Server("n3local")
 
 _FULL_TOOL_NAMES = [
     "alarm_get",
@@ -40,12 +40,12 @@ _CORE_TOOL_NAMES = [
     "tag_describe",
     "tag_history",
 ]
-_TOOL_PROFILE = os.getenv("N3OPS_TOOL_PROFILE", "full").strip().lower()
+_TOOL_PROFILE = os.getenv("N3LOCAL_TOOL_PROFILE", "full").strip().lower()
 _ALLOWED_TOOL_NAMES = _CORE_TOOL_NAMES if _TOOL_PROFILE == "core" else _FULL_TOOL_NAMES
 _ALLOWED_TOOL_SET = set(_ALLOWED_TOOL_NAMES)
 _TOOL_CACHE: dict[str, Tool] = {}
 _N3LOCAL_URL = os.getenv("N3LOCAL_URL", "http://host.docker.internal:4103/mcp")
-_HTTP_TIMEOUT = float(os.getenv("N3OPS_HTTP_TIMEOUT_SECONDS", "120"))
+_HTTP_TIMEOUT = float(os.getenv("N3LOCAL_HTTP_TIMEOUT_SECONDS", "120"))
 _COMPACT_TOOL_DESCRIPTIONS = {
     "alarm_get": "List current alarms with optional path, status, and priority filters.",
     "alarm_count": "Count current alarms with optional path, status, and priority filters.",
@@ -283,7 +283,7 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
     if name not in _ALLOWED_TOOL_SET:
-        return [TextContent(type="text", text=f"Error: tool '{name}' is not enabled in N3OPS")]
+        return [TextContent(type="text", text=f"Error: tool '{name}' is not enabled in N3LOCAL")]
 
     async with _session() as session:
         result = await session.call_tool(name, arguments or {})

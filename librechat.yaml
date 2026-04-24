@@ -98,17 +98,17 @@ modelSpecs:
       artifacts: true
       fileSearch: true
       mcpServers:
-        - "N3OPS"
+        - "N3LOCAL"
         - "engram"
       preset:
         endpoint: "OllamaLocal"
         model: "gemma4:26b"
         modelLabel: "N3 O&M"
         disableStreaming: true
-        greeting: "Ask about live N3uron state, alarms, assets, manuals, reports, or maintenance. N3OPS, RAG file search, Engram workflow memory, and artifacts are enabled for this profile."
+        greeting: "Ask about live N3uron state, alarms, assets, manuals, reports, or maintenance. N3LOCAL, RAG file search, Engram workflow memory, and artifacts are enabled for this profile."
         promptPrefix: |
           N3uron O&M assistant.
-          N3OPS is the source of truth for live and historical plant data.
+          N3LOCAL is the source of truth for live and historical plant data.
           File Search is for uploaded manuals, reports, procedures, and documentation.
           Engram is workflow memory only for compact checkpoints, decisions, blockers, conclusions, and next actions.
           Never invent values or hide unit ambiguity.
@@ -120,16 +120,16 @@ modelSpecs:
         temperature: 0.01
 
 mcpServers:
-  N3OPS:
+  N3LOCAL:
     type: "stdio"
     requiresOAuth: false
     command: "/app/data/engram/.runtime-venv/bin/python"
     args:
-      - "/opt/n3ops_mcp/server.py"
+      - "/opt/n3local_mcp/server.py"
     env:
       N3LOCAL_URL: "http://host.docker.internal:4103/mcp"
       N3LOCAL_TOKEN: "${N3LOCAL_TOKEN}"
-      N3OPS_TOOL_PROFILE: "core"
+      N3LOCAL_TOOL_PROFILE: "core"
     startup: false
     chatMenu: false
     initTimeout: 240000
