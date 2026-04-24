@@ -27,9 +27,6 @@ _TOOL_PROFILE = os.getenv("ENGRAM_TOOL_PROFILE", "full").strip().lower()
 _WORKFLOW_TOOL_NAMES = {
     "memory_store",
     "memory_search",
-    "memory_session_save",
-    "memory_session_load",
-    "memory_session_list",
     "memory_checkpoint",
 }
 _WORKFLOW_TOOL_OVERRIDES = {
@@ -39,12 +36,6 @@ _WORKFLOW_TOOL_OVERRIDES = {
         "data, artifacts, or chat transcripts."
     ),
     "memory_search": "Search compact workflow notes, prior decisions, blockers, and next actions.",
-    "memory_session_save": (
-        "Save a concise workflow checkpoint with summary, key facts, and open tasks. "
-        "Use short plain-text bullets, not raw outputs or generated code."
-    ),
-    "memory_session_load": "Load the latest saved workflow checkpoint for this project.",
-    "memory_session_list": "List saved workflow checkpoints for this project.",
     "memory_checkpoint": (
         "Save a terse workflow checkpoint. Keep summaries short and do not include raw tool "
         "payloads, HTML, or copied report text."
